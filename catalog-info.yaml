@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: github-triage
+  description: "Claude Code plugin for triaging GitHub issues and PRs with a security-gated PR review workflow."
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    prime-radiant.com/repo-map-rev: "03da54db38a238d65b3a2617ededfb118c774e4c"
+  tags: [claude-code-plugin, github, triage, code-review, pull-requests]
+spec:
+  type: tool
+  lifecycle: production
+  owner: user:obra
+  system: bots
