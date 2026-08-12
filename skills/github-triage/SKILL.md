@@ -470,7 +470,7 @@ claude --version       # e.g., "2.1.56 (Claude Code)"
 echo "$CLAUDE_CODE_SESSION_ID"   # Claude Code exports the session ID to the shells it runs
 ```
 
-If it prints nothing, omit the session ID from the comment rather than leaving a blank placeholder.
+If it prints nothing, a session URL or transcript path is an acceptable substitute if you have one; otherwise omit the session ID from the comment rather than leaving a blank placeholder.
 
 ---
 
