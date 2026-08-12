@@ -115,6 +115,18 @@ Not all AI-assisted PRs warrant this label. Exclude submissions that show:
 - Honest limitations ("Not yet tested on...", "Known issue: ...")
 - Iterative development ("I tried X but it didn't work, so I switched to Y")
 
+### Slop forensics
+
+The AI authorship rule judges one item at a time. Coordinated and bad-faith patterns live *across* items — you only see them by comparing authors, timestamps, and comment threads:
+
+- **Spray-and-pray batches** — same author opening several PRs minutes apart, each "fixing" a different issue, often issues filed by other agent-run accounts. Compare `createdAt` timestamps across an author's PRs.
+- **Sock-puppet approval** — "LGTM" / "verified locally" comments from accounts with no repo association, sometimes with near-duplicated wording across items.
+- **Bot spam rings** — throwaway accounts posting emoji or one-line comments across multiple issues. Bulk-delete and report.
+- **Fabricated attestations** — human-review checkboxes checked while the PR body says review is still pending; "Rigor" claims contradicted by the diff (e.g. claiming a command was verified when the PR's own text shows a different command).
+- **Prompt provenance tells** — PR bodies disclosing the session was prompted to "find a proven bug and contribute" — issue-trawling, not an experienced problem.
+
+To investigate: check `gh pr view NUMBER --json authorAssociation`, compare timestamps across an author's PRs, and read comment threads for self-replies.
+
 **Template compliance rule:** If the repo has issue or PR templates, check whether submissions filed after the template was introduced actually use it. Apply `pr-template-rules-ignored` (or repo equivalent) to PRs that either skip the template entirely or leave required sections blank/placeholder. This is an objective, mechanical check — apply it consistently regardless of content quality. A PR can have good content and still get this label if it ignored the template. To determine when templates were introduced, check `git log` for the template files (e.g., `.github/PULL_REQUEST_TEMPLATE.md`).
 
 **Skip closed issues** unless explicitly asked.
