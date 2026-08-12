@@ -140,6 +140,8 @@ Tagged: 16 issues, 6 PRs
 
 Go through open issues **oldest-first**. For each one, the question to answer is: **"can this still be reproduced?"** — not "is the file content the reporter described still there?"
 
+**Scoping:** oldest-first full-backlog reproduction is for small backlogs. At 50+ open items, use the windowing from Backlog Audit mode (below) — audit a recent time window first, and come back for the long tail in later passes.
+
 ```bash
 # Get issues sorted oldest-first
 gh issue list --repo OWNER/REPO --state open --json number,title,body,createdAt --limit 500 \
@@ -457,6 +459,53 @@ echo "$CLAUDE_CODE_SESSION_ID"   # Claude Code exports the session ID to the she
 ```
 
 If it prints nothing, omit the session ID from the comment rather than leaving a blank placeholder.
+
+---
+
+## Backlog Audit Mode
+
+An alternative entry point to Phases 6-7 for slop-heavy repos or pre-release triage. When the backlog is large (50+ open items) and quality is low, per-item reproduction oldest-first is too slow to reach a release decision. Audit in bulk, then let the maintainer act on a reviewed list.
+
+### Scope to a time window
+
+Instead of oldest-first, scope to items created in a window — the last 2 weeks, or since the last release:
+
+```bash
+gh issue list --repo OWNER/REPO --state open --json number,title,body,createdAt --search "created:>=2026-07-29" --limit 500
+gh pr list --repo OWNER/REPO --state open --json number,title,body,createdAt --limit 500   # filter by createdAt
+```
+
+The long tail gets later passes. A pre-release audit cares most about what's new since the last release.
+
+### Fan out audit subagents
+
+Launch parallel audit subagents in batches of ~6 items each. Each subagent reads its items in full (body, comments, linked diffs) and returns, per item:
+
+1. **Verdict** — one of:
+
+| Verdict | Meaning |
+|---------|---------|
+| **VALID** | Real problem, confirmed by evidence |
+| **PARTIALLY VALID** | Contains a real problem wrapped in wrong diagnosis or inflated scope |
+| **INVALID-SLOP** | Fabricated, hallucinated, or agent-generated noise with no real problem |
+| **QUESTION-SUPPORT** | Not a defect — a usage question or support request |
+| **ALREADY-FIXED** | Fixed on a branch — must cite the commit |
+
+2. **Showstopper rating** — YES / NO / MAYBE. Only YES for defects that actively break users on the released or dev branch: data loss, silently skipped work, hook failure. Feature requests and cost complaints are never showstoppers.
+
+3. **One-line recommended action** — close with comment, merge candidate, request changes, answer and close, etc.
+
+**Evidence grade:** every verdict must state whether it rests on *reproduction-grade* evidence (ran the scenario, observed the behavior) or *inspection-grade* evidence (read code, reasoned about it). The reproduction-vs-narration doctrine from Phase 6 applies unchanged — an inspection-grade VALID is a provisional verdict, and a close decision should not rest on inspection-grade evidence alone.
+
+### Output: reviewed lists, then action
+
+Assemble the subagent results into three lists:
+
+- **Close list** — INVALID-SLOP, QUESTION-SUPPORT (with answer), ALREADY-FIXED (with commit citation)
+- **Merge-candidate list** — PRs verdicted VALID whose fix looks sound (these still go through the full Phase 7 pipeline: security review, code review, local tests)
+- **Request-changes list** — PARTIALLY VALID items where the real problem is worth keeping
+
+**The maintainer reviews these lists item by item before ANY close, comment, or merge action executes.** Bulk-closing on unreviewed subagent verdicts is how valid reports get lost. Present the lists, wait for approval, then act.
 
 ---
 
