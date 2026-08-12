@@ -290,7 +290,7 @@ Provide the agent:
 
 **Why local?** CI may be broken, rate-limited, or testing a stale base. Local runs catch issues CI misses and confirm the code works on the actual machine it will be merged from.
 
-### Step 3: Merge decision
+### Step 4: Merge decision
 
 | Code Review | Tests | Action |
 |-------------|-------|--------|
@@ -343,6 +343,8 @@ When code review identifies that new code lacks test coverage (e.g. a new functi
 1. Write the tests yourself on the PR branch
 2. Push them to the PR branch with a commit message explaining what you added and why
 3. Proceed to the merge decision as normal
+
+**Fork PRs:** you cannot push to a fork's branch (see "Fork branch limitation" above). Add the tests during the manual-squash flow instead — write them as part of step 4 ("Apply any fixes you need") before committing the squash.
 
 Only request changes from the author if the code itself has correctness issues, not just missing tests. Missing tests are your problem to fix, not a reason to block the PR.
 
@@ -427,7 +429,7 @@ git merge --squash pr-B-branch
 
 Conflicts from sequential merges are almost always in **generated files** (bundled dist, lock files, source maps). Resolve them by accepting the current main's version and rebuilding — never try to hand-merge a minified bundle.
 
-### Step 4: Merge and thank the author
+### Step 5: Merge and thank the author
 
 ```bash
 gh pr merge NUMBER --repo OWNER/REPO --squash
