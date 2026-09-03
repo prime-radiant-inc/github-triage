@@ -224,6 +224,23 @@ If the project uses a dev/release branch model, distinguish:
 
 For NOT-REPRODUCIBLE-ON-DEV, do NOT just close — confirm with the maintainer how they prefer to handle "fixed pending release" (label, milestone, or close-with-citation). This is a common false-close vector: closing based on a dev commit message when the user reading `main` still hits the bug.
 
+### Running Phase 6 at scale: the two-wave protocol
+
+Past a couple of dozen issues, run Phase 6 with investigator subagents and the tooling that ships with this plugin:
+
+| Artifact | Use |
+|----------|-----|
+| `references/investigator-brief.md` | Template for the brief you hand each investigator. Fill its six `{{placeholders}}` — repo, checkout path, branch, baseline commit, prior-triage path, output dir — and give every agent the same filled copy. |
+| `references/verdict-schema.json` | The contract: one verdict JSON file per issue. Investigators write to it; the report builder enforces it. |
+| `scripts/build-report.py` | Validates every `verdicts/<n>.json` against the schema, then writes `report.md` and `verdicts.json`. `--missing` tells you which open issues still have no verdict. |
+| `scripts/apply-triage-actions.py` | Turns the approved subset into `gh` calls: creates only the labels the actions file declares, refuses labels that don't exist in the repo, posts identity-disclosed comments, closes. |
+
+**Split the work into two waves.** Wave 1 is static only — no `claude`, no `claude -p`, no agent sessions at all. An investigator who cannot settle a claim without watching a model behave writes verdict `NEED_LIVE_REPRO` plus a `live_repro_design`: the fixture, the neutral prompt, the model, the single decisive observation, and how many reps. Wave 2 runs only those designs, as real driven sessions.
+
+**The model tier is the cost lever, so budget it.** Every live-repro design names the cheapest model that could settle its question, and wave 2 runs that model — never a larger one because it's convenient. Cap reps per issue (3 is a good default): run one, run more only when the outcome is ambiguous, stop early when it's decisive. Report `1/3` as `1/3` — never round a nondeterministic result up to "reproduced".
+
+Two waves exist because live sessions cost real money and most issues don't need one. Doing all the cheap work first tells you exactly which issues do.
+
 ---
 
 ## Phase 7: PR Review and Merge
