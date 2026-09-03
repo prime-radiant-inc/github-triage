@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/obra/github-triage/references/verdict-schema.json",
+  "title": "Triage verdict",
+  "description": "One investigator's verdict on one open issue. Written as verdicts/<n>.json by an investigator agent following references/investigator-brief.md; read and validated by scripts/build-report.py. Stay inside the JSON Schema subset build-report.py implements: type, enum, const, required, properties, additionalProperties (boolean), items, minItems, minLength, and $ref into $defs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "n", "verdict", "confidence", "summary", "evidence", "related",
+    "recommended_action", "labels_add", "labels_remove", "draft_reply"
+  ],
+  "properties": {
+    "n": {"type": "integer", "description": "Issue number."},
+    "verdict": {
+      "description": "Exactly one outcome. references/investigator-brief.md defines each.",
+      "enum": [
+        "REPRODUCED", "NOT_REPRODUCIBLE", "NEED_LIVE_REPRO", "NEED_REPRO_ENV",
+        "NEED_MORE_INFO", "FEATURE_UNMET", "FEATURE_MET", "RESOLVED_ON_MAIN",
+        "RESOLVED_BY_OPEN_PR", "DUPLICATE", "OPINION_NOT_BUG", "WRONG_VENUE",
+        "NEEDS_MAINTAINER_DECISION", "SLOP"
+      ]
+    },
+    "confidence": {
+      "enum": ["high", "medium", "low"],
+      "description": "How sure you are AFTER your tests, not before."
+    },
+    "summary": {
+      "type": "string", "minLength": 1,
+      "description": "<=60 words: what the issue is, what you found, what the maintainer should do."
+    },
+    "evidence": {
+      "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"},
+      "description": "One entry per load-bearing assertion in the report."
+    },
+    "changed_since_baseline": {
+      "type": ["string", "null"],
+      "description": "One line: what changed in the relevant files since the prior triage baseline, or 'none'. Omit when there is no prior triage."
+    },
+    "related": {"$ref": "#/$defs/related"},
+    "recommended_action": {
+      "enum": ["keep", "comment", "close", "needs-maintainer"],
+      "description": "keep, comment and close map onto the action field of the actions file scripts/apply-triage-actions.py consumes. needs-maintainer means the maintainer must decide before anything is posted."
+    },
+    "labels_add": {"type": "array", "items": {"type": "string"}},
+    "labels_remove": {"type": "array", "items": {"type": "string"}},
+    "draft_reply": {
+      "type": "string",
+      "description": "2-6 sentences the maintainer could paste: specific, evidence-based, kind to good-faith reporters, firm on slop, no timelines. Empty string if no reply is warranted."
+    },
+    "live_repro_design": {
+      "description": "Required when the verdict is NEED_LIVE_REPRO: the wave-2 scenario. null otherwise.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["fixture", "prompt", "model", "decisive_observation", "reps"],
+      "properties": {
+        "fixture": {
+          "type": "string", "minLength": 1,
+          "description": "Exactly what the fixture directory must contain for the run to be meaningful."
+        },
+        "prompt": {
+          "type": "string", "minLength": 1,
+          "description": "The neutral user prompt, verbatim. Must not hint at the expected failure."
+        },
+        "model": {
+          "type": "string", "minLength": 1,
+          "description": "The cheapest model tier that could settle this. Wave 2 runs exactly this."
+        },
+        "decisive_observation": {
+          "type": "string", "minLength": 1,
+          "description": "The single observation that settles the question either way."
+        },
+        "reps": {"type": "integer", "description": "How many reps to run, up to the wave-2 rep cap."}
+      }
+    },
+    "live_repro": {
+      "description": "Wave-2 results. Absent or null until wave 2 has run this design.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["reps", "reproduced", "void", "workers"],
+      "properties": {
+        "reps": {"type": "integer", "description": "Reps actually run."},
+        "reproduced": {"type": "integer", "description": "Reps in which the decisive observation occurred."},
+        "void": {"type": "integer", "description": "Reps that timed out, refused, or failed for unrelated reasons."},
+        "workers": {"type": "array", "items": {"type": "string"}, "description": "Worker session names, one per rep."},
+        "notes": {
+          "type": "string",
+          "description": "Confounds, deviations from the design, anything the maintainer needs in order to weigh the number."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim", "test", "result"],
+      "properties": {
+        "claim": {"type": "string", "minLength": 1, "description": "The assertion being tested, in the reporter's terms."},
+        "test": {"type": "string", "minLength": 1, "description": "The exact command or reading, so it can be re-run."},
+        "result": {"type": "string", "minLength": 1, "description": "What was observed. Quote over paraphrase."}
+      }
+    },
+    "related": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["duplicates_of", "open_prs", "related_issues"],
+      "properties": {
+        "duplicates_of": {"type": ["integer", "null"], "description": "Canonical issue number if this is a duplicate."},
+        "open_prs": {"type": "array", "items": {"type": "integer"}},
+        "related_issues": {"type": "array", "items": {"type": "integer"}}
+      }
+    }
+  }
+}
