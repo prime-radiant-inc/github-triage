@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Fake `gh` for the github-triage test suite.
+
+When to use: put this directory first on PATH in a test so the scripts under test make
+real subprocess calls without touching GitHub. Why: the scripts' decisions -- which
+labels get created, which issues get closed, what the comment body says, what happens
+when gh fails -- are only observable at the process boundary.
+
+Environment:
+  GH_ARGV_LOG   file to append one JSON array of argv per invocation
+  GH_LABELS     JSON array of label names the fake repo already has (default [])
+  GH_AUTHOR     login returned by `issue view --json author` (default "reporter")
+  GH_AUTHOR_<N> per-issue override of the author login for issue <N>
+  GH_FAIL_ON    substring; if it appears in the space-joined argv, exit 1
+"""
+import json
+import os
+import sys
+
+argv = sys.argv[1:]
+
+log = os.environ.get("GH_ARGV_LOG")
+if log:
+    with open(log, "a") as fh:
+        fh.write(json.dumps(argv) + "\n")
+
+fail_on = os.environ.get("GH_FAIL_ON")
+if fail_on and fail_on in " ".join(argv):
+    sys.stderr.write("fake gh failure: refusing %r\n" % fail_on)
+    sys.exit(1)
+
+if argv[:2] == ["label", "list"]:
+    names = json.loads(os.environ.get("GH_LABELS", "[]"))
+    print(json.dumps([{"name": n} for n in names]))
+elif argv[:2] == ["issue", "view"]:
+    number = argv[2]
+    login = os.environ.get("GH_AUTHOR_" + number) or os.environ.get("GH_AUTHOR", "reporter")
+    print(json.dumps({"author": {"login": login}}))
+
+sys.exit(0)
