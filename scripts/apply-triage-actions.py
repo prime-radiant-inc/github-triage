@@ -109,8 +109,8 @@ def load_identity(args, parser):
 def build_body(reply, author, identity, kind):
     """Identity preamble + the approved reply + the revisit footer."""
     handle = "@" + identity["maintainer"]
-    # "Jesse (@obra)" when there is a name to give, plain "@obra" when the name IS the
-    # handle -- otherwise the default maintainer_name renders it twice.
+    # "Ada (@ada-l)" when there is a name to give, plain "@ada-l" when the name IS the
+    # handle -- otherwise the default maintainer_name renders the handle twice.
     reference = (handle if identity["maintainer_name"] == handle
                  else "%s (%s)" % (identity["maintainer_name"], handle))
     fields = dict(identity, author=author, kind=kind, maintainer_ref=reference)
