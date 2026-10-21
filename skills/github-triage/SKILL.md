@@ -451,11 +451,10 @@ To get version and session:
 ```bash
 claude --version       # e.g., "2.1.56 (Claude Code)"
 
-# Session ID is passed as --session-id to the Claude process; read it from the parent:
-ps -p $PPID -o args= | grep -oE -- '--session-id [^ ]+' | awk '{print $2}'
+echo "$CLAUDE_CODE_SESSION_ID"   # Claude Code exports the session ID to the shells it runs
 ```
 
-`$CLAUDE_SESSION_ID` is not reliably set as an environment variable. Use the `ps` command above instead. If it returns empty (Claude was launched without an explicit session ID), omit the session ID from the comment rather than leaving a blank placeholder.
+If it prints nothing, omit the session ID from the comment rather than leaving a blank placeholder.
 
 ---
 
@@ -481,7 +480,7 @@ ps -p $PPID -o args= | grep -oE -- '--session-id [^ ]+' | awk '{print $2}'
 | Merging conflicting PRs | Check `mergeStateStatus` — never merge `DIRTY` |
 | Missing identification in PR comments | Always include model, Claude Code version, session ID |
 | Reviewing PRs sequentially | Launch code review and test agents in parallel |
-| Thanking with wrong session ID | Get it via `ps -p $PPID -o args= \| grep -oE -- '--session-id [^ ]+' \| awk '{print $2}'`; omit if empty |
+| Thanking with wrong session ID | Get it via `echo "$CLAUDE_CODE_SESSION_ID"`; omit if empty |
 | Requesting changes for missing tests only | Write the tests yourself on the PR branch and push them |
 | Leaving an architectural alternative as a comment only | Build a prototype branch, run tests, push it, then comment with branch link + tradeoff table |
 | Blocking a PR on an architectural discussion | Prototype discussions are non-blocking; PR proceeds to normal merge decision |
