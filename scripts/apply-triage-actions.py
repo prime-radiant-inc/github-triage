@@ -27,7 +27,7 @@ Identity (file keys, each overridable by the matching flag):
   model, harness, session_url, maintainer, maintainer_name
   model, harness and maintainer are required. session_url is dropped from the footer if
   absent, which beats leaving a blank placeholder. Discover the session id with:
-    ps -p $PPID -o args= | grep -oE -- '--session-id [^ ]+' | awk '{print $2}'
+    echo "$CLAUDE_CODE_SESSION_ID"
 
 One line per action on stdout; every gh command and its full output go to the log file.
 Exits non-zero on the first gh failure, leaving the remaining issues untouched.

@@ -1,5 +1,8 @@
-"""SKILL.md Phase 6 and the README must point at the tooling that ships with the plugin."""
+"""SKILL.md Phase 6 and the README must point at the tooling that ships with the plugin,
+and no SKILL.md may contain text Claude Code would replace with skill arguments."""
+import glob
 import os
+import re
 import unittest
 
 import helpers
@@ -48,6 +51,25 @@ class ReadmeTest(unittest.TestCase):
 
     def test_readme_documents_the_test_runner(self):
         self.assertIn("tests/run-tests.sh", README)
+
+
+# Claude Code substitutes these with the invocation's arguments ($0 is the first), so
+# shell like awk '{print $2}' arrives rewritten whenever that argument exists. Flags
+# everything Claude Code's own pattern matches.
+ARGUMENT_PLACEHOLDER = re.compile(r"\$ARGUMENTS|\$\d+(?!\w)", re.ASCII)
+
+
+class SkillArgumentPlaceholderTest(unittest.TestCase):
+    def test_no_skill_contains_an_argument_placeholder(self):
+        hits = []
+        for path in sorted(glob.glob(os.path.join(helpers.REPO_ROOT, "skills", "*", "SKILL.md"))):
+            with open(path) as fh:
+                for number, line in enumerate(fh, 1):
+                    if ARGUMENT_PLACEHOLDER.search(line):
+                        hits.append("%s:%d: %s" % (os.path.relpath(path, helpers.REPO_ROOT),
+                                                   number, line.rstrip()))
+        if hits:
+            self.fail("argument placeholders in skill content:\n" + "\n".join(hits))
 
 
 if __name__ == "__main__":
