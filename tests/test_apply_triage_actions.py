@@ -90,6 +90,46 @@ class ApplyActionsTest(unittest.TestCase):
         self.assertIn("reply", proc.stderr)
         self.assertEqual(self.mutating(calls), [])
 
+    def test_refuses_unknown_close_reason(self):
+        actions = self.actions_file({"1": {"action": "close", "reply": "Bye.",
+                                           "reason": "wontfix"}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("wontfix", proc.stderr)
+        self.assertEqual(self.mutating(calls), [])
+
+    def test_refuses_reason_on_an_action_that_does_not_close(self):
+        actions = self.actions_file({"1": {"action": "comment", "reply": "Hi.",
+                                           "reason": "completed"}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("reason", proc.stderr)
+        self.assertEqual(self.mutating(calls), [])
+
+    def test_refuses_duplicate_close_without_a_canonical(self):
+        actions = self.actions_file({"1": {"action": "close", "reply": "Dup.",
+                                           "reason": "duplicate"}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("duplicate_of", proc.stderr)
+        self.assertEqual(self.mutating(calls), [])
+
+    def test_refuses_duplicate_of_without_the_duplicate_reason(self):
+        actions = self.actions_file({"1": {"action": "close", "reply": "Dup.",
+                                           "duplicate_of": 9}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("duplicate_of", proc.stderr)
+        self.assertEqual(self.mutating(calls), [])
+
+    def test_refuses_an_issue_marked_duplicate_of_itself(self):
+        actions = self.actions_file({"1": {"action": "close", "reply": "Dup.",
+                                           "reason": "duplicate", "duplicate_of": 1}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("itself", proc.stderr)
+        self.assertEqual(self.mutating(calls), [])
+
     def test_refuses_when_identity_is_incomplete(self):
         actions = self.actions_file({"1": {"action": "keep"}})
         proc, _ = self.run_it(["--repo", "o/r", "--actions", actions,
@@ -164,7 +204,27 @@ class ApplyActionsTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         close = [c for c in calls if c[:2] == ["issue", "close"]][0]
         self.assertEqual(close[close.index("--reason") + 1], "not planned")
+        self.assertNotIn("--duplicate-of", close)
         self.assertIn("Not our bug.", self.body_of(close))
+
+    def test_close_as_completed_passes_the_reason(self):
+        actions = self.actions_file({"1": {"action": "close", "reply": "Shipped in v2.",
+                                           "reason": "completed"}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        close = [c for c in calls if c[:2] == ["issue", "close"]][0]
+        self.assertEqual(close[close.index("--reason") + 1], "completed")
+        self.assertIn("Shipped in v2.", self.body_of(close))
+
+    def test_close_as_duplicate_links_the_canonical(self):
+        actions = self.actions_file({"1": {"action": "close", "reply": "Tracked in #9.",
+                                           "reason": "duplicate", "duplicate_of": 9}})
+        proc, calls = self.run_it(self.base(actions) + ["--approved", "1"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        close = [c for c in calls if c[:2] == ["issue", "close"]][0]
+        self.assertEqual(close[close.index("--reason") + 1], "duplicate")
+        self.assertEqual(close[close.index("--duplicate-of") + 1], "9")
+        self.assertIn("Tracked in #9.", self.body_of(close))
 
     def test_comment_leaves_the_issue_open(self):
         actions = self.actions_file({"1": {"action": "comment", "reply": "Still open."}})
