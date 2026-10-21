@@ -31,7 +31,7 @@ Python 3 standard library only — no pip dependencies. `gh` is the only externa
 | Script | What it does |
 |--------|--------------|
 | `scripts/build-report.py` | Merges per-issue verdict files into `report.md` + `verdicts.json`, validating each against `references/verdict-schema.json` first and writing nothing if any file is malformed. `--missing` reports which open issues still have no verdict. |
-| `scripts/apply-triage-actions.py` | Applies an approved actions file: creates only the labels the file declares, refuses to apply a label that doesn't exist in the repo (`gh issue edit --add-label` would silently create it), posts identity-disclosed comments, closes. Has `--dry-run`, `--only-labels`, and an `--approved` list it will not act outside of. |
+| `scripts/apply-triage-actions.py` | Applies an approved actions file: creates only the labels the file declares, refuses to apply a label that doesn't exist in the repo (`gh issue edit --add-label` would silently create it), posts identity-disclosed comments, closes (as `completed`, `not planned` or `duplicate`, linking the canonical). Has `--dry-run`, `--only-labels`, and an `--approved` list it will not act outside of. |
 
 Both print their input-file shapes under `--help`.
 

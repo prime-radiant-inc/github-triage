@@ -17,11 +17,14 @@ Usage:
 Actions file:
   {"new_labels": {"hermes": {"color": "5319e7", "description": "Hermes Agent"}},
    "issues": {"1860": {"labels_add": ["bug"], "labels_remove": ["needs-triage"],
-                       "action": "close", "reply": "Duplicate of #809 ..."}}}
+                       "action": "close", "reply": "Duplicate of #809 ...",
+                       "reason": "duplicate", "duplicate_of": 809}}}
 
   action is one of keep | comment | close. close and comment need a non-empty reply;
   keep applies labels only. Per issue the order is labels first, then the action.
   Labels under new_labels are created only if some approved issue actually wants them.
+  A close may set reason to completed | not planned | duplicate (default: not planned);
+  duplicate needs duplicate_of, the canonical issue number, which GitHub links.
 
 Identity (file keys, each overridable by the matching flag):
   model, harness, session_url, maintainer, maintainer_name
@@ -39,6 +42,7 @@ import subprocess
 import sys
 
 ACTIONS = ("keep", "comment", "close")
+CLOSE_REASONS = ("completed", "not planned", "duplicate")
 
 REPORTER_PREAMBLE = (
     "Hi @{author} — I'm Claude, an AI agent ({model}, running in {harness}), posting "
@@ -137,6 +141,17 @@ def parse_actions(path, approved, parser):
                          % (number, action, ", ".join(ACTIONS)))
         if action in ("close", "comment") and not (entry.get("reply") or "").strip():
             parser.error("#%d: action %r needs a non-empty reply" % (number, action))
+        reason = entry.get("reason")
+        duplicate_of = entry.get("duplicate_of")
+        if reason is not None and action != "close":
+            parser.error("#%d: reason applies only to close, not %r" % (number, action))
+        if reason is not None and reason not in CLOSE_REASONS:
+            parser.error("#%d: reason %r is not one of %s"
+                         % (number, reason, ", ".join(CLOSE_REASONS)))
+        if (reason == "duplicate") != (duplicate_of is not None):
+            parser.error("#%d: reason duplicate and duplicate_of go together" % number)
+        if duplicate_of == number:
+            parser.error("#%d: duplicate_of points at the issue itself" % number)
     return document.get("new_labels") or {}, selected
 
 
@@ -232,9 +247,13 @@ def main():
             body = build_body(entry["reply"], author, identity,
                               "closure" if action == "close" else "reply")
             if action == "close":
-                print("#%d: CLOSE (reply to @%s)" % (number, author))
-                gh.run("issue", "close", str(number), "--repo", args.repo,
-                       "--reason", "not planned", "--comment", body)
+                reason = entry.get("reason") or "not planned"
+                command = ["issue", "close", str(number), "--repo", args.repo,
+                           "--reason", reason]
+                if reason == "duplicate":
+                    command += ["--duplicate-of", str(entry["duplicate_of"])]
+                print("#%d: CLOSE as %s (reply to @%s)" % (number, reason, author))
+                gh.run(*(command + ["--comment", body]))
             else:
                 print("#%d: COMMENT (reply to @%s)" % (number, author))
                 gh.run("issue", "comment", str(number), "--repo", args.repo,
