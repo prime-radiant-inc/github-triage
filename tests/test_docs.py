@@ -59,6 +59,11 @@ class SkillPointerTest(unittest.TestCase):
         self.assertIn("apply-triage-actions.py", phase_four())
         self.assertIn("--only-labels", phase_four())
 
+    def test_phase_two_taxonomy_lists_both_template_labels(self):
+        phase_two = SKILL.split("## Phase 2")[1].split("## Phase 3")[0]
+        self.assertIn("pr-template-rules-ignored", phase_two)
+        self.assertIn("issue-template-rules-ignored", phase_two)
+
     def test_no_gh_pr_view_json_field_that_gh_rejects(self):
         # gh pr view --json has no authorAssociation field; the REST API does.
         self.assertNotRegex(SKILL, r"gh pr view[^\n]*--json[^\n]*authorAssociation")

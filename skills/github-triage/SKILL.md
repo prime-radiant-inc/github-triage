@@ -61,7 +61,8 @@ Dimension: type     → bug, enhancement, documentation
 Dimension: area     → area:docker, area:devcontainer-spec, area:testing, area:tooling
 Dimension: priority → priority:high (bugs that block users)
 Dimension: status   → status:needs-review, status:needs-reproduction, status:blocked, status:stale
-Dimension: quality  → no-obvious-human-review, pr-template-rules-ignored (if repo has templates)
+Dimension: quality  → no-obvious-human-review, pr-template-rules-ignored, issue-template-rules-ignored (if repo has templates)
+Dimension: base     → needs-rebase-to-<branch> (if PRs must not target the default branch)
 Exempt from quality → @maintainer, @co-maintainer, *-bot (accounts the maintainers' own agents run under)
 
 | #   | Title                        | Labels                          |
@@ -140,9 +141,9 @@ To investigate: check `gh api repos/OWNER/REPO/pulls/NUMBER -q .author_associati
 
 With more than a few dozen items, fan the reading out to cheap-model labeler subagents that **propose** and never write:
 
-1. Fill `references/labeler-brief.md` (the approved vocabulary, retired-label migrations, dated template rules, exempt authors, the branch PRs must not target) and hand each labeler ~6–8 items and its own `batch-NN.json` output file. Proposals follow `references/label-proposal-schema.json`.
+1. Fill `references/labeler-brief.md` (the approved vocabulary, retired-label migrations, dated template rules, exempt authors, the branch PRs must not target and its label) and hand each labeler ~6–8 items and its own `batch-NN.json` output file. Proposals follow `references/label-proposal-schema.json`.
 2. Personally verify every `no-obvious-human-review` proposal by reading the item; record each correction, with the reason, in an `overrides.json`.
-3. Run `scripts/check-label-proposals.py` with the live `gh issue/pr list` JSON, the overrides, `--exempt`, `--retired` and `--wrong-base` (the branch PRs must NOT target: e.g. `--wrong-base main` when work lands on `dev`). Fix every contradiction it lists in the overrides file and re-run until it writes the actions file.
+3. Run `scripts/check-label-proposals.py` with the live `gh issue/pr list` JSON, the overrides, `--exempt`, `--retired`, and `--wrong-base` with `--rebase-label` (the branch PRs must NOT target and the taxonomy's label for them: e.g. `--wrong-base main` when work lands on `dev`). Fix every contradiction it lists in the overrides file and re-run until it writes the actions file.
 4. Show the maintainer the per-item changes; apply only the approved numbers with `scripts/apply-triage-actions.py --only-labels`.
 
 ## Phase 5: Labeling Report

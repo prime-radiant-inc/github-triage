@@ -11,7 +11,8 @@ import helpers
 LIVE_ISSUES = [
     {"number": 10, "author": {"login": "reporter"}, "labels": [{"name": "bug"}]},
     {"number": 11, "author": {"login": "dana"}, "labels": []},
-    {"number": 12, "author": {"login": "helper-sen"}, "labels": [{"name": "plans"}]},
+    {"number": 12, "author": {"login": "helper-bot"}, "labels": [{"name": "plans"}]},
+    {"number": 13, "author": {"login": "dana"}, "labels": [{"name": "no-obvious-human-review"}]},
 ]
 LIVE_PRS = [
     {"number": 20, "author": {"login": "drive-by"}, "labels": [], "baseRefName": "main"},
@@ -135,6 +136,7 @@ class CheckLabelProposalsTest(unittest.TestCase):
         self.batch(proposal(20, "pr"), proposal(21, "pr", add=["needs-rebase-to-dev-branch"]))
         proc = self.run_it("--wrong-base", "main",
                            "--rebase-label", "needs-rebase-to-dev-branch")
+        self.assertNotIn("Traceback", proc.stderr)
         self.assert_problem(proc, "#20: base is main but "
                                   "needs-rebase-to-dev-branch is not applied")
         self.assertIn("#21: base is dev, not main, but needs-rebase-to-dev-branch is applied",
@@ -142,7 +144,14 @@ class CheckLabelProposalsTest(unittest.TestCase):
 
     def test_stacked_pr_on_a_feature_branch_needs_no_rebase_label(self):
         self.batch(proposal(22, "pr"))
-        self.assertEqual(self.run_it("--wrong-base", "main").returncode, 0)
+        proc = self.run_it("--wrong-base", "main", "--rebase-label", "needs-rebase")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_wrong_base_requires_a_rebase_label_name(self):
+        self.batch(proposal(20, "pr"))
+        proc = self.run_it("--wrong-base", "main")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("--rebase-label", proc.stderr)
 
     def test_rebase_check_is_off_without_wrong_base(self):
         self.batch(proposal(20, "pr"))
@@ -169,10 +178,51 @@ class CheckLabelProposalsTest(unittest.TestCase):
     def test_exempt_accepts_glob_patterns(self):
         self.batch(proposal(12, "issue", template_ignored=True, remove=["plans"],
                             add=["issue-template-rules-ignored", "skill:writing-plans"]))
-        proc = self.run_it("--exempt", "dana,*-sen")
+        proc = self.run_it("--exempt", "dana,*-bot")
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual(self.actions_written()["issues"]["12"]["labels_add"],
                          ["skill:writing-plans"])
+
+    def test_exempt_author_loses_existing_review_label(self):
+        self.batch(proposal(13, "issue"))
+        proc = self.run_it("--exempt", "dana")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(self.actions_written()["issues"]["13"]["labels_remove"],
+                         ["no-obvious-human-review"])
+
+    # --- records that would silently vanish -------------------------------------------
+
+    def test_same_item_in_two_batches_is_a_problem(self):
+        self.batch(proposal(10, "issue", add=["windows"]), name="batch-01.json")
+        self.batch(proposal(10, "issue", add=["linux"]), name="batch-02.json")
+        self.assert_problem(self.run_it(), "#10: proposed in both batch-01.json and "
+                                           "batch-02.json")
+
+    def test_override_for_an_item_nobody_proposed_is_a_problem(self):
+        self.batch(proposal(10, "issue"))
+        overrides = self.write("overrides.json", {"99": {"add": ["windows"]}})
+        self.assert_problem(self.run_it("--overrides", overrides),
+                            "#99: override matches no proposal")
+
+    def test_override_with_a_typo_key_exits_2(self):
+        self.batch(proposal(10, "issue"))
+        overrides = self.write("overrides.json", {"10": {"no_human_reveiw": False}})
+        proc = self.run_it("--overrides", overrides)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("no_human_reveiw", proc.stderr)
+        self.assertFalse(os.path.exists(self.actions))
+
+    def test_override_with_a_string_for_a_list_exits_2(self):
+        self.batch(proposal(10, "issue"))
+        overrides = self.write("overrides.json", {"10": {"add": "windows"}})
+        proc = self.run_it("--overrides", overrides)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("add", proc.stderr)
+
+    def test_open_items_without_a_proposal_are_counted(self):
+        self.batch(proposal(10, "issue"))
+        proc = self.run_it()
+        self.assertIn("6 open items have no proposal", proc.stdout)
 
     # --- malformed input --------------------------------------------------------------
 
@@ -185,6 +235,19 @@ class CheckLabelProposalsTest(unittest.TestCase):
         self.assertIn("batch-07.json", proc.stderr)
         self.assertIn("add", proc.stderr)
         self.assertFalse(os.path.exists(self.actions))
+
+    def test_no_batch_files_exits_2(self):
+        proc = self.run_it()
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("no batch-*.json", proc.stderr)
+
+    def test_live_json_missing_a_field_exits_2_without_traceback(self):
+        self.batch(proposal(10, "issue"))
+        self.issues = self.write("issues.json", [{"number": 10, "labels": []}])
+        proc = self.run_it()
+        self.assertEqual(proc.returncode, 2)
+        self.assertNotIn("Traceback", proc.stderr)
+        self.assertIn("issues.json", proc.stderr)
 
     def test_unparseable_batch_exits_2(self):
         with open(os.path.join(self.proposals, "batch-03.json"), "w") as fh:

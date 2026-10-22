@@ -59,7 +59,7 @@ with open(os.path.join(REFERENCES, "label-proposal-schema.json")) as fh:
 
 LABELER_PLACEHOLDERS = {
     "repo", "label_vocabulary", "migrations", "template_rules", "exempt_authors",
-    "wrong_base",
+    "wrong_base", "rebase_label",
 }
 
 
@@ -81,8 +81,15 @@ class LabelerBriefTest(unittest.TestCase):
         self.assertIn("gh issue edit", LABELER_BRIEF)
 
     def test_no_hardcoded_project_identity(self):
-        for leak in ["obra/superpowers", "Jesse", "superpowers", "session_01"]:
+        for leak in ["obra/superpowers", "Jesse", "superpowers", "session_01",
+                     "needs-rebase-to-dev-branch"]:
             self.assertNotIn(leak, LABELER_BRIEF)
+
+    def test_schema_rejects_unknown_proposal_keys(self):
+        br = helpers.load_script("build-report.py")
+        record = json.loads(re.search(r"```json\n(.*?)```", LABELER_BRIEF, re.S).group(1))
+        record["no_human_reveiw"] = True
+        self.assertTrue(br.validate([record], PROPOSAL_SCHEMA))
 
 
 class VerdictOrderTest(unittest.TestCase):

@@ -1,13 +1,13 @@
 # Open-item labeling: labeler protocol
 
-> Template. Fill the six placeholders before handing this to a labeler:
+> Template. Fill the seven placeholders before handing this to a labeler:
 > `{{repo}}` (owner/name), `{{label_vocabulary}}` (the approved Phase 2 taxonomy: every
 > label a labeler may propose, with one line on when each applies), `{{migrations}}`
 > (retired label → replacement mapping, or "none"), `{{template_rules}}` (each template
 > requirement with the UTC date it reached the default branch), `{{exempt_authors}}`
-> (logins and globs the maintainer exempted, or "none"), and `{{wrong_base}}` (the
-> branch PRs must not target, or "none"). Give every labeler the same filled copy, plus
-> its own item list and output file.
+> (logins and globs the maintainer exempted, or "none"), `{{wrong_base}}` (the branch
+> PRs must not target, or "none"), and `{{rebase_label}}` (the taxonomy's label for such
+> PRs). Give every labeler the same filled copy, plus its own item list and output file.
 
 You are PROPOSING labels for open issues and PRs in `{{repo}}`. You are READ-ONLY.
 
@@ -85,7 +85,7 @@ their bodies say. Still propose their topical labels.
 
 ## Base branch
 
-If `{{wrong_base}}` is not "none": propose `needs-rebase-to-dev-branch` for a PR whose
+If `{{wrong_base}}` is not "none": propose `{{rebase_label}}` for a PR whose
 `baseRefName` is `{{wrong_base}}`, and only then. A PR based on any other branch (a
 stacked PR on a feature branch, for instance) does not get it.
 

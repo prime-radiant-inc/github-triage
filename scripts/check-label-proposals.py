@@ -13,7 +13,7 @@ labeler.
 Usage:
   check-label-proposals.py --proposals DIR --issues issues.json --prs prs.json
       [--overrides overrides.json] [--exempt LOGIN,GLOB,...] [--retired LABEL,...]
-      [--wrong-base main --rebase-label needs-rebase-to-dev-branch]
+      [--wrong-base main --rebase-label needs-rebase-to-dev]
       [--actions-out actions.json]
 
   --issues / --prs take the JSON from:
@@ -23,10 +23,14 @@ Usage:
 
 Overrides file: {"2511": {"add": ["windows"], "no_human_review": false,
                           "verifier": "honest limitations; not flagging"}}
-  Each key replaces that field of the labeler's record before any check runs.
+  Each key replaces that field of the labeler's record before any check runs. The merged
+  record must still match the schema, and an override for an item no labeler proposed is
+  a problem: a correction that silently lands nowhere defeats the point of making it.
 
 --exempt lists authors (fnmatch globs allowed, e.g. maintainer,*-bot) whose items never
-get the review or template labels; those labels are dropped and reported, not flagged.
+carry the review or template labels: proposed ones are dropped and existing ones removed,
+and both are reported rather than flagged. The label names are fixed:
+no-obvious-human-review, issue-template-rules-ignored, pr-template-rules-ignored.
 
 The actions file holds action "keep" entries with only the real changes: labels the item
 lacks in labels_add, labels it has in labels_remove. Apply it with
@@ -70,33 +74,60 @@ def read_json(path):
 
 
 def load_proposals(directory, overrides):
-    """Every record from DIR/batch-*.json, schema-checked, with overrides applied."""
+    """Return (records, problems): every record from DIR/batch-*.json with overrides
+    applied, each schema-checked before and after; problems are records that would
+    otherwise vanish silently."""
     validate = load_validator()
     schema = read_json(SCHEMA_PATH)
-    records, broken = [], False
-    for path in sorted(glob.glob(os.path.join(directory, "batch-*.json"))):
+    paths = sorted(glob.glob(os.path.join(directory, "batch-*.json")))
+    if not paths:
+        sys.stderr.write("%s: no batch-*.json files\n" % directory)
+        sys.exit(2)
+    records, problems, seen, broken = [], [], {}, False
+    for path in paths:
         batch = read_json(path)
         errors = validate(batch, schema)
         if errors:
             broken = True
             sys.stderr.write("%s:\n  %s\n" % (path, "\n  ".join(errors)))
             continue
-        records.extend(batch)
+        for record in batch:
+            number = record["number"]
+            if number in seen:
+                problems.append("#%d: proposed in both %s and %s"
+                                % (number, seen[number], os.path.basename(path)))
+                continue
+            seen[number] = os.path.basename(path)
+            records.append(record)
     if broken:
         sys.exit(2)
+    for key in sorted(set(overrides) - {str(n) for n in seen}, key=int):
+        problems.append("#%s: override matches no proposal" % key)
     for record in records:
         record.update(overrides.get(str(record["number"]), {}))
-    return sorted(records, key=lambda r: r["number"])
+        errors = validate(record, schema["$defs"]["proposal"], schema)
+        if errors:
+            broken = True
+            sys.stderr.write("override for #%d:\n  %s\n"
+                             % (record["number"], "\n  ".join(errors)))
+    if broken:
+        sys.exit(2)
+    return sorted(records, key=lambda r: r["number"]), problems
 
 
-def live_state(issues, prs):
+def live_state(issues_path, prs_path):
     """number -> (kind, author, set of labels, base branch or None)."""
     state = {}
-    for kind, items in (("issue", issues), ("pr", prs)):
-        for item in items:
-            state[item["number"]] = (kind, item["author"]["login"],
-                                     {label["name"] for label in item["labels"]},
-                                     item.get("baseRefName"))
+    for kind, path in (("issue", issues_path), ("pr", prs_path)):
+        try:
+            for item in read_json(path):
+                state[item["number"]] = (kind, item["author"]["login"],
+                                         {label["name"] for label in item["labels"]},
+                                         item.get("baseRefName"))
+        except (KeyError, TypeError) as exc:
+            sys.stderr.write("%s: not gh list JSON with number, author and labels "
+                             "(missing %s)\n" % (path, exc))
+            sys.exit(2)
     return state
 
 
@@ -110,8 +141,9 @@ def check(record, live, args):
     notes = []
 
     if any(fnmatch.fnmatchcase(author, pattern) for pattern in args.exempt):
-        dropped = sorted(add & FLAG_LABELS)
+        dropped = sorted((add | current) & FLAG_LABELS)
         add -= FLAG_LABELS
+        remove |= current & FLAG_LABELS
         flags = dict(record, no_human_review=False, template_ignored=False)
         if dropped:
             notes.append("#%d: exempt author %s, dropped %s"
@@ -167,17 +199,22 @@ def main():
     parser.add_argument("--wrong-base", metavar="BRANCH",
                         help="branch PRs must not target (e.g. main when work lands on "
                              "dev); enables the rebase-label check")
-    parser.add_argument("--rebase-label", default="needs-rebase-to-dev-branch",
-                        help="label for PRs targeting --wrong-base (default: %(default)s)")
+    parser.add_argument("--rebase-label", metavar="LABEL",
+                        help="label for PRs targeting --wrong-base; required with it")
     parser.add_argument("--actions-out", metavar="FILE",
                         help="write the actions file here when there are no problems")
     args = parser.parse_args()
+    if args.wrong_base and not args.rebase_label:
+        parser.error("--wrong-base needs --rebase-label (the label the taxonomy uses)")
 
     overrides = read_json(args.overrides) if args.overrides else {}
-    records = load_proposals(args.proposals, overrides)
-    live = live_state(read_json(args.issues), read_json(args.prs))
+    records, problems = load_proposals(args.proposals, overrides)
+    live = live_state(args.issues, args.prs)
 
-    problems, notes, actions = [], [], {}
+    notes, actions = [], {}
+    unproposed = len(set(live) - {r["number"] for r in records})
+    if unproposed:
+        notes.append("%d open items have no proposal" % unproposed)
     for record in records:
         found, noted, labels_add, labels_remove = check(record, live, args)
         problems += found

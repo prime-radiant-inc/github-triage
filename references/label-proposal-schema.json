@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/obra/github-triage/references/label-proposal-schema.json",
   "title": "Label proposal",
-  "description": "One labeler subagent's proposed label changes for one open issue or PR. Labelers following references/labeler-brief.md write a JSON array of these per batch file; scripts/check-label-proposals.py validates them. Stay inside the JSON Schema subset build-report.py implements: type, enum, const, required, properties, additionalProperties (boolean), items, minItems, minLength, and $ref into $defs.",
+  "description": "One labeler subagent's proposed label changes for one open issue or PR. Labelers following references/labeler-brief.md write a JSON array of these per batch file; scripts/check-label-proposals.py validates them, and validates each record again after applying an overrides file. Stay inside the JSON Schema subset build-report.py implements: type, enum, const, required, properties, additionalProperties (boolean), items, minItems, minLength, and $ref into $defs.",
   "type": "array",
   "items": {
     "$ref": "#/$defs/proposal"
@@ -83,7 +83,8 @@
           "type": "string",
           "description": "Set only in an overrides file: the orchestrator's reason for correcting the subagent."
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }
