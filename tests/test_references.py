@@ -1,4 +1,4 @@
-"""The investigator brief template must stay in sync with the schema and the scripts."""
+"""The brief templates must stay in sync with their schemas and the scripts."""
 import json
 import os
 import re
@@ -50,6 +50,39 @@ class InvestigatorBriefTest(unittest.TestCase):
     def test_no_hardcoded_project_identity(self):
         for leak in ["obra/superpowers", "Jesse", "Fable", "session_01"]:
             self.assertNotIn(leak, BRIEF)
+
+
+with open(os.path.join(REFERENCES, "labeler-brief.md")) as fh:
+    LABELER_BRIEF = fh.read()
+with open(os.path.join(REFERENCES, "label-proposal-schema.json")) as fh:
+    PROPOSAL_SCHEMA = json.load(fh)
+
+LABELER_PLACEHOLDERS = {
+    "repo", "label_vocabulary", "migrations", "template_rules", "exempt_authors",
+    "wrong_base",
+}
+
+
+class LabelerBriefTest(unittest.TestCase):
+    def test_placeholders_are_exactly_the_documented_set(self):
+        found = set(re.findall(r"\{\{(\w+)\}\}", LABELER_BRIEF))
+        self.assertEqual(found, LABELER_PLACEHOLDERS)
+
+    def test_brief_points_at_the_schema(self):
+        self.assertIn("references/label-proposal-schema.json", LABELER_BRIEF)
+
+    def test_example_record_in_the_brief_validates_against_the_schema(self):
+        br = helpers.load_script("build-report.py")
+        example = json.loads(re.search(r"```json\n(.*?)```", LABELER_BRIEF, re.S).group(1))
+        self.assertEqual(br.validate([example], PROPOSAL_SCHEMA), [])
+
+    def test_brief_forbids_github_writes(self):
+        self.assertRegex(LABELER_BRIEF, r"(?i)read-only")
+        self.assertIn("gh issue edit", LABELER_BRIEF)
+
+    def test_no_hardcoded_project_identity(self):
+        for leak in ["obra/superpowers", "Jesse", "superpowers", "session_01"]:
+            self.assertNotIn(leak, LABELER_BRIEF)
 
 
 class VerdictOrderTest(unittest.TestCase):

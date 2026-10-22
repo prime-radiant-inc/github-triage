@@ -7,7 +7,7 @@ A Claude Code plugin for systematic GitHub issue and PR triage, with a security-
 ### Skill: `github-triage`
 
 Full triage workflow across 7 phases:
-- **Phase 1–5**: Discover patterns, propose label taxonomy, create labels, tag issues/PRs, summarize
+- **Phase 1–5**: Discover patterns, propose label taxonomy, create labels, tag issues/PRs (at scale: propose-only labeler agents checked by `check-label-proposals.py`), summarize
 - **Phase 6**: Validate open issues against the codebase (oldest-first), close resolved ones with evidence — at scale, via the two-wave protocol the scripts and references below support
 - **Phase 7**: Security-gated PR review — security analysis → parallel code review + local tests → merge + author credit
 
@@ -31,6 +31,7 @@ Python 3 standard library only — no pip dependencies. `gh` is the only externa
 | Script | What it does |
 |--------|--------------|
 | `scripts/build-report.py` | Merges per-issue verdict files into `report.md` + `verdicts.json`, validating each against `references/verdict-schema.json` first and writing nothing if any file is malformed. `--missing` reports which open issues still have no verdict. |
+| `scripts/check-label-proposals.py` | Checks labeler subagents' proposals (Phase 4 at scale) against themselves and against live `gh issue/pr list` JSON: a template or human-review flag without its label or the reverse, a PR template label on an issue, a retired label left behind, a rebase label that contradicts the PR's base. Takes your corrections as an `--overrides` file and drops review/template labels for `--exempt` authors. Writes an actions file for `apply-triage-actions.py --only-labels` only when no contradiction remains. |
 | `scripts/apply-triage-actions.py` | Applies an approved actions file: creates only the labels the file declares, refuses to apply a label that doesn't exist in the repo (`gh issue edit --add-label` would silently create it), posts identity-disclosed comments, closes (as `completed`, `not planned` or `duplicate`, linking the canonical). Has `--dry-run`, `--only-labels`, and an `--approved` list it will not act outside of. |
 
 Both print their input-file shapes under `--help`.
@@ -52,6 +53,8 @@ you filter and rename into the actions file's `action`, `labels_add`, `labels_re
 |------|------------|
 | `references/verdict-schema.json` | JSON Schema for one triage verdict — the contract between investigator agents and `build-report.py`. |
 | `references/investigator-brief.md` | Template for the protocol handed to investigator subagents: the skepticism rules, the claim-type test matrix, the verdict taxonomy, and the wave-1 / wave-2 split. Fill in six `{{placeholders}}`. |
+| `references/label-proposal-schema.json` | JSON Schema for one batch of labeler proposals: the contract between labeler agents and `check-label-proposals.py`. |
+| `references/labeler-brief.md` | Template for the protocol handed to labeler subagents: propose-only, the approved vocabulary, retired-label migrations, dated template rules, exempt authors. Fill in six `{{placeholders}}`. |
 
 ## Tests
 

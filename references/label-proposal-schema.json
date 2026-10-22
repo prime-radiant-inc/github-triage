@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/obra/github-triage/references/label-proposal-schema.json",
+  "title": "Label proposal",
+  "description": "One labeler subagent's proposed label changes for one open issue or PR. Labelers following references/labeler-brief.md write a JSON array of these per batch file; scripts/check-label-proposals.py validates them. Stay inside the JSON Schema subset build-report.py implements: type, enum, const, required, properties, additionalProperties (boolean), items, minItems, minLength, and $ref into $defs.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/proposal"
+  },
+  "$defs": {
+    "label_list": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "required": [
+        "number",
+        "kind",
+        "add",
+        "remove",
+        "no_human_review",
+        "human_review_evidence",
+        "template_ignored",
+        "template_evidence",
+        "confidence"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "issue",
+            "pr"
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "current_labels": {
+          "$ref": "#/$defs/label_list"
+        },
+        "add": {
+          "$ref": "#/$defs/label_list",
+          "description": "Labels to add. Must include no-obvious-human-review / the template label whenever the matching boolean is true."
+        },
+        "remove": {
+          "$ref": "#/$defs/label_list"
+        },
+        "no_human_review": {
+          "type": "boolean"
+        },
+        "human_review_evidence": {
+          "type": "string"
+        },
+        "template_ignored": {
+          "type": "boolean"
+        },
+        "template_evidence": {
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "verifier": {
+          "type": "string",
+          "description": "Set only in an overrides file: the orchestrator's reason for correcting the subagent."
+        }
+      }
+    }
+  }
+}
