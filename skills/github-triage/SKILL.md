@@ -62,6 +62,7 @@ Dimension: area     → area:docker, area:devcontainer-spec, area:testing, area:
 Dimension: priority → priority:high (bugs that block users)
 Dimension: status   → status:needs-review, status:needs-reproduction, status:blocked, status:stale
 Dimension: quality  → no-obvious-human-review, pr-template-rules-ignored (if repo has templates)
+Exempt from quality → @maintainer, @co-maintainer, *-bot (accounts the maintainers' own agents run under)
 
 | #   | Title                        | Labels                          |
 |-----|------------------------------|---------------------------------|
@@ -71,6 +72,8 @@ Dimension: quality  → no-obvious-human-review, pr-template-rules-ignored (if r
 ```
 
 Showing the per-item mapping upfront lets the user approve taxonomy AND assignments in one step.
+
+**Ask who is exempt from the quality dimension.** Maintainers and the agents they run file things that skip contributor templates or say "unreviewed agentic output — do not merge" because a maintainer *is* the reviewer. Fill the "Exempt from quality" row with the maintainer's answer before tagging.
 
 **Do not proceed until user approves.**
 
@@ -97,6 +100,8 @@ gh pr edit NUMBER --repo OWNER/REPO --add-label "label1,label2"
 **Confidence rule:** Apply `needs-categorization` when uncertain. A wrong label is worse.
 
 **Reproduction rule:** Apply `needs-reproduction` to bug reports that lack clear steps to reproduce, have vague descriptions ("it doesn't work"), are missing version/environment info, or don't include error output. A bug that can't be reproduced can't be fixed.
+
+**Exempt authors:** If an item's author is on the approved exempt list, it gets topical labels only — never `no-obvious-human-review` or a template label, whatever its body says.
 
 **AI authorship rule:** Apply `no-obvious-human-review` (or repo equivalent) to issues and PRs that appear fully AI-generated with no meaningful human oversight. Signals to look for:
 
@@ -125,11 +130,20 @@ The AI authorship rule judges one item at a time. Coordinated and bad-faith patt
 - **Fabricated attestations** — human-review checkboxes checked while the PR body says review is still pending; "Rigor" claims contradicted by the diff (e.g. claiming a command was verified when the PR's own text shows a different command).
 - **Prompt provenance tells** — PR bodies disclosing the session was prompted to "find a proven bug and contribute" — issue-trawling, not an experienced problem.
 
-To investigate: check `gh pr view NUMBER --json authorAssociation`, compare timestamps across an author's PRs, and read comment threads for self-replies.
+To investigate: check `gh api repos/OWNER/REPO/pulls/NUMBER -q .author_association` (`gh pr view` has no JSON field for it), compare timestamps across an author's PRs, and read comment threads for self-replies.
 
-**Template compliance rule:** If the repo has issue or PR templates, check whether submissions filed after the template was introduced actually use it. Apply `pr-template-rules-ignored` (or repo equivalent) to PRs that either skip the template entirely or leave required sections blank/placeholder. This is an objective, mechanical check — apply it consistently regardless of content quality. A PR can have good content and still get this label if it ignored the template. To determine when templates were introduced, check `git log` for the template files (e.g., `.github/PULL_REQUEST_TEMPLATE.md`).
+**Template compliance rule:** If the repo has issue or PR templates, check whether submissions filed after the template was introduced actually use it. Apply `pr-template-rules-ignored` / `issue-template-rules-ignored` (or repo equivalents) to items that either skip the template entirely or leave required sections blank/placeholder. This is an objective, mechanical check — apply it consistently regardless of content quality. A PR can have good content and still get this label if it ignored the template. To determine when templates were introduced, check `git log` for the template files (e.g., `.github/PULL_REQUEST_TEMPLATE.md`).
 
 **Skip closed issues** unless explicitly asked.
+
+### Running Phase 4 at scale
+
+With more than a few dozen items, fan the reading out to cheap-model labeler subagents that **propose** and never write:
+
+1. Fill `references/labeler-brief.md` (the approved vocabulary, retired-label migrations, dated template rules, exempt authors, the branch PRs must not target) and hand each labeler ~6–8 items and its own `batch-NN.json` output file. Proposals follow `references/label-proposal-schema.json`.
+2. Personally verify every `no-obvious-human-review` proposal by reading the item; record each correction, with the reason, in an `overrides.json`.
+3. Run `scripts/check-label-proposals.py` with the live `gh issue/pr list` JSON, the overrides, `--exempt`, `--retired` and `--wrong-base` (the branch PRs must NOT target: e.g. `--wrong-base main` when work lands on `dev`). Fix every contradiction it lists in the overrides file and re-run until it writes the actions file.
+4. Show the maintainer the per-item changes; apply only the approved numbers with `scripts/apply-triage-actions.py --only-labels`.
 
 ## Phase 5: Labeling Report
 

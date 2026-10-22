@@ -1,4 +1,4 @@
-"""SKILL.md Phase 6 and the README must point at the tooling that ships with the plugin,
+"""SKILL.md Phases 4 and 6 and the README must point at the tooling that ships with the plugin,
 and no SKILL.md may contain text Claude Code would replace with skill arguments."""
 import glob
 import os
@@ -20,6 +20,17 @@ ARTIFACTS = [
 ]
 
 
+LABELING_ARTIFACTS = [
+    "scripts/check-label-proposals.py",
+    "references/labeler-brief.md",
+    "references/label-proposal-schema.json",
+]
+
+
+def phase_four():
+    return SKILL.split("## Phase 4")[1].split("## Phase 5")[0]
+
+
 def phase_six():
     return SKILL.split("## Phase 6")[1].split("## Phase 7")[0]
 
@@ -39,6 +50,19 @@ class SkillPointerTest(unittest.TestCase):
     def test_phase_six_states_the_model_budget_rule(self):
         self.assertRegex(phase_six(), r"(?i)cheapest model")
 
+    def test_phase_four_names_every_labeling_artifact(self):
+        section = phase_four()
+        for artifact in LABELING_ARTIFACTS:
+            self.assertIn(artifact, section, "%s missing from Phase 4" % artifact)
+
+    def test_phase_four_applies_labels_through_apply_triage_actions(self):
+        self.assertIn("apply-triage-actions.py", phase_four())
+        self.assertIn("--only-labels", phase_four())
+
+    def test_no_gh_pr_view_json_field_that_gh_rejects(self):
+        # gh pr view --json has no authorAssociation field; the REST API does.
+        self.assertNotRegex(SKILL, r"gh pr view[^\n]*--json[^\n]*authorAssociation")
+
     def test_phase_seven_still_present_and_after_phase_six(self):
         self.assertIn("## Phase 7: PR Review and Merge", SKILL)
         self.assertLess(SKILL.index("## Phase 6"), SKILL.index("## Phase 7"))
@@ -46,7 +70,7 @@ class SkillPointerTest(unittest.TestCase):
 
 class ReadmeTest(unittest.TestCase):
     def test_readme_documents_every_artifact(self):
-        for artifact in ARTIFACTS:
+        for artifact in ARTIFACTS + LABELING_ARTIFACTS:
             self.assertIn(artifact, README, "%s missing from the README" % artifact)
 
     def test_readme_documents_the_test_runner(self):
